@@ -7,6 +7,7 @@ from azure.identity import UsernamePasswordCredential
 from msgraph import GraphServiceClient
 from msgraph.generated.users.users_request_builder import UsersRequestBuilder
 from kiota_abstractions.base_request_configuration import RequestConfiguration
+from msgraph_core.tasks.page_iterator import PageIterator
 
 credentials = UsernamePasswordCredential(
     client_id=os.getenv('clientId'),
@@ -43,4 +44,24 @@ async def get_user_paging():
             for user in users.value:
                 print(f"user.user_principal_name:{user.user_principal_name}")
 
-asyncio.run(get_user_paging())
+def callback(user):
+    """callback"""
+    print(f'{user.user_principal_name=}')
+    return True
+
+async def iterate_all_users():
+    """iterate all users
+    https://github.com/microsoftgraph/msgraph-sdk-python-core/pull/479
+    """
+    query_params = UsersRequestBuilder.UsersRequestBuilderGetQueryParameters(
+        select = ["userPrincipalName"],
+        top = 1,
+    )
+    config = RequestConfiguration(
+        query_parameters = query_params,
+    )
+    users = await client.users.get(config)
+    page_iterator = PageIterator(users, client.request_adapter)
+    await page_iterator.iterate(callback)
+
+asyncio.run(iterate_all_users())
